@@ -1,0 +1,116 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: YAML Lint Validation
+        run: |
+          pip install yamllint
+          echo "Checking YAML files..."
+          yamllint .github/workflows/ || exit 1
+          echo "✅ YAML validation passed"
+
+      - name: Markdown Lint Validation
+        run: |
+          npm install -g markdownlint-cli
+          echo "Checking Markdown files..."
+          find src/skills -name "*.md" -type f | xargs markdownlint || exit 1
+          echo "✅ Markdown validation passed"
+
+      - name: File Structure Check
+        run: |
+          echo "Checking project structure..."
+          
+          # 检查 SKILL.md 文件
+          for skill_dir in src/skills/*/; do
+            if [ ! -f "${skill_dir}SKILL.md" ]; then
+              echo "❌ Missing SKILL.md in ${skill_dir}"
+              exit 1
+            fi
+            echo "✓ Found SKILL.md in ${skill_dir}"
+          done
+          
+          # 检查 SKILL.md 大小
+          for skill_file in src/skills/*/SKILL.md; do
+            size=$(wc -c < "$skill_file")
+            if [ $size -gt 51200 ]; then
+              echo "⚠️ Warning: ${skill_file} is larger than 50KB ($size bytes)"
+            fi
+            echo "✓ ${skill_file}: $size bytes"
+          done
+
+      - name: Security Scan
+        run: |
+          echo "Running security scan..."
+          
+          # 检查潜在密钥
+          if grep -r "api_key\s*[:=]\|apikey\s*[:=]\|secret\s*[:=]\|password\s*[:=]" \
+            --include="*.md" --include="*.yml" --include="*.yaml" . 2>/dev/null | \
+            grep -v "# " | grep -v "example" | grep -v "placeholder"; then
+            echo "⚠️ Potential secrets detected!"
+            exit 1
+          fi
+          
+          echo "✅ Security scan passed"
+
+      - name: Skill Metadata Validation
+        run: |
+          echo "Validating Skill metadata..."
+          
+          for skill_file in src/skills/*/SKILL.md; do
+            # 检查 YAML frontmatter
+            if ! head -1 "$skill_file" | grep -q "^---"; then
+              echo "❌ Missing YAML frontmatter in ${skill_file}"
+              exit 1
+            fi
+            
+            # 检查 name 字段
+            if ! grep -q "^name:" "$skill_file"; then
+              echo "❌ Missing 'name' field in ${skill_file}"
+              exit 1
+            fi
+            
+            # 检查 description 字段
+            if ! grep -q "^description:" "$skill_file"; then
+              echo "❌ Missing 'description' field in ${skill_file}"
+              exit 1
+            fi
+            
+            echo "✓ ${skill_file} metadata valid"
+          done
+          
+          echo "✅ All Skill metadata valid"
+
+      - name: Summary
+        run: |
+          echo "==================================="
+          echo "✅ All validation checks passed!"
+          echo "==================================="
+          echo ""
+          echo "Skills validated:"
+          find src/skills -name "SKILL.md" -type f | wc -l
+          echo ""
+          echo "Total documentation:"
+          find src/skills -name "*.md" -type f | wc -l
