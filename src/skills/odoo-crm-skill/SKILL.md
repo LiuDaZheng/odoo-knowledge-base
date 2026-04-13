@@ -5,14 +5,6 @@ description: >
   支持线索转化、机会跟进、客户分类、管道阶段管理等核心 CRM 操作。
   Use when: (1) 创建或管理销售线索，(2) 跟进商机机会，(3) 管理客户信息，
   (4) 查看销售管道，(5) 转化线索为客户，(6) 分析 CRM 数据。
-tags: [odoo, crm, leads, opportunities, customers, pipeline, sales]
-platforms: [Claude, ChatGPT, Gemini]
-metadata:
-  openclaw:
-    version: "1.0"
-  odoo:
-    min_version: "16.0"
-    modules: [crm, contacts, sales]
 ---
 
 # Odoo CRM Skill
