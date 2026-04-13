@@ -1,172 +1,222 @@
 ---
-name: odoo-inventory
-description: Odoo 库存管理 Skill - 查询库存、创建调拨、管理仓库操作
-version: 0.1.0
-metadata:
-  openclaw:
-    version: "1.0"
-  author: OpenClaw Agent
-  created: 2026-04-12
-  tags:
-    - odoo
-    - inventory
-    - erp
-    - stock
-    - warehouse
-triggers:
-  - odoo 库存
-  - odoo 查询库存
-  - odoo 创建调拨
-  - odoo 入库
-  - odoo 出库
-  - odoo 库存调整
-  - 查询 odoo 产品
-  - odoo 仓库管理
-  - stock query
-  - odoo inventory
-  - create transfer
-  - odoo stock
+name: odoo-inventory-skill
+description: >
+  Odoo 库存管理 Skill。管理入库、出库、库存调拨和库存盘点。
+  支持库存转移、库存调整、库存查询、库存报表等核心功能。
+  Use when: (1) 管理入库出库，(2) 执行库存调拨，(3) 进行库存盘点，
+  (4) 查询库存数量，(5) 生成库存报表，(6) 跟踪库存移动。
 ---
 
-# Odoo 库存管理 Skill
+# Odoo Inventory Skill
 
-## 功能概述
+管理 Odoo 库存核心业务：入库、出库、调拨、盘点。
 
-本 Skill 提供与 Odoo ERP 库存管理模块的集成，支持以下核心功能：
+## 📖 功能概览
 
-1. **库存查询** - 查询产品库存数量、库位分布
-2. **调拨管理** - 创建入库、出库、内部调拨单
-3. **库存调整** - 执行盘点、处理报废
-4. **产品管理** - 查询产品信息、产品类别
+| 功能模块 | 描述 | API 端点 |
+|---------|------|---------|
+| **入库管理** | 采购入库、生产入库、退货入库 | `/stock/incoming` |
+| **出库管理** | 销售出库、领料出库、退货出库 | `/stock/outgoing` |
+| **库存调拨** | 仓库间调拨、库位间调拨 | `/stock/transfers` |
+| **库存盘点** | 定期盘点、循环盘点、差异调整 | `/stock/inventory` |
 
-## 配置要求
+## 🚀 快速开始
 
-使用前需要在 Feishu 中配置以下环境变量：
+### 前置条件
 
-```yaml
-ODOO_BASE_URL: https://your-company.odoo.com
-ODOO_API_KEY: your_api_key_here
-ODOO_DATABASE: your_database_name
-```
+1. **Odoo 实例**: Odoo v16.0+
+2. **API 访问**: 配置 API Key
+3. **权限**: 库存模块访问权限
 
-## 使用示例
-
-### 查询产品库存
-
-```
-查询 odoo 产品 笔记本电脑 的库存
-odoo 查询库存 产品 ID 10
-```
-
-### 创建入库单
-
-```
-odoo 入库 供应商 A 产品 ID 10 数量 100
-创建 odoo 入库单 产品 笔记本电脑 数量 50
-```
-
-### 创建出库单
-
-```
-odoo 出库 客户 B 产品 ID 10 数量 20
-创建 odoo 出库单 订单号 SO001 产品 鼠标 数量 10
-```
-
-### 库存调整
-
-```
-odoo 库存调整 产品 ID 10 实际数量 95 原因 盘点差异
-```
-
-## 核心操作
-
-### 库存查询
-
-- `get_stock_quantity(product_id, location_id=None)` - 查询产品库存
-- `get_available_stock(product_id)` - 查询可用库存 (扣除预留)
-- `get_stock_moves(product_id, date_from, date_to)` - 查询库存移动历史
-- `get_picking_by_origin(origin)` - 根据来源单号查询调拨单
-
-### 调拨管理
-
-- `create_incoming_picking(partner_id, product_lines)` - 创建入库单
-- `create_outgoing_picking(partner_id, product_lines, origin)` - 创建出库单
-- `create_internal_transfer(from_location, to_location, product_lines)` - 内部调拨
-- `validate_picking(picking_id)` - 验证调拨单
-- `cancel_picking(picking_id)` - 取消调拨单
-
-### 库存调整
-
-- `create_inventory_adjustment(product_id, counted_quantity, location_id)` - 创建调整单
-- `apply_inventory_adjustment(inventory_id)` - 应用调整
-- `create_scrap(product_id, quantity, reason)` - 创建报废单
-
-## API 参考
-
-### 数据模型
-
-| 模型 | 说明 | 主要字段 |
-|-----|------|---------|
-| `stock.quant` | 库存数量 | `product_id`, `location_id`, `quantity`, `reserved_quantity` |
-| `stock.picking` | 调拨单 | `picking_type_id`, `origin`, `state`, `move_lines` |
-| `stock.move` | 库存移动 | `product_id`, `product_uom_qty`, `picking_id`, `state` |
-| `product.product` | 产品 | `name`, `type`, `uom_id`, `categ_id` |
-
-### 状态码
-
-| 状态 | 说明 |
-|-----|------|
-| `draft` | 草稿 |
-| `waiting` | 等待可用 |
-| `confirmed` | 已确认 |
-| `assigned` | 已分配 (有库存) |
-| `done` | 已完成 |
-| `cancel` | 已取消 |
-
-## 错误处理
-
-### 常见错误
-
-| 错误码 | 说明 | 解决方案 |
-|-------|------|---------|
-| `INSUFFICIENT_STOCK` | 库存不足 | 检查可用库存，调整数量 |
-| `INVALID_PRODUCT` | 产品不存在 | 验证产品 ID |
-| `INVALID_LOCATION` | 库位不存在 | 验证库位 ID |
-| `PICKING_LOCKED` | 调拨单已锁定 | 无法修改已验证的调拨单 |
-
-## 最佳实践
-
-1. **库存查询**: 使用 `get_available_stock` 而非 `get_stock_quantity`，避免分配冲突
-2. **批量操作**: 多个产品使用批量 API，减少网络往返
-3. **状态检查**: 操作前检查调拨单状态，避免无效操作
-4. **错误重试**: 网络错误实现指数退避重试
-5. **日志记录**: 记录所有 API 调用，便于审计
-
-## 依赖
-
-- `requests` - HTTP 客户端
-- `python-dateutil` - 日期处理
-
-## 测试
+### 配置认证
 
 ```bash
-# 运行单元测试
-pytest tests/test_inventory.py
-
-# 运行集成测试 (需要 Odoo 测试环境)
-pytest tests/test_integration.py --odoo-url=https://test.odoo.com
+export ODOO_URL="https://your-company.odoo.com"
+export ODOO_DB="your_database"
+export ODOO_API_KEY="your_api_key"
 ```
 
-## 版本历史
+## 📋 核心功能
 
-| 版本 | 日期 | 变更 |
-|-----|------|------|
-| 0.1.0 | 2026-04-12 | 初始版本，基础库存查询和调拨功能 |
+### 1. 入库管理 (Incoming)
 
-## 待开发功能
+#### 创建入库单
 
-- [ ] 批次/序列号管理
-- [ ] 多仓库支持
-- [ ] 补货规则管理
-- [ ] 库存预测
-- [ ] 条形码扫描集成
+```bash
+python3 {baseDir}/scripts/inventory.py incoming create \
+  --partner_id 123 \
+  --warehouse_id 1 \
+  --lines "Product A:10,Product B:20" \
+  --scheduled_date "2026-04-15"
+```
+
+#### 查看入库单
+
+```bash
+python3 {baseDir}/scripts/inventory.py incoming list
+python3 {baseDir}/scripts/inventory.py incoming list --state draft
+```
+
+#### 确认入库
+
+```bash
+python3 {baseDir}/scripts/inventory.py incoming validate <picking_id>
+```
+
+### 2. 出库管理 (Outgoing)
+
+#### 创建出库单
+
+```bash
+python3 {baseDir}/scripts/inventory.py outgoing create \
+  --partner_id 123 \
+  --warehouse_id 1 \
+  --lines "Product A:5,Product B:10"
+```
+
+#### 查看出库单
+
+```bash
+python3 {baseDir}/scripts/inventory.py outgoing list
+python3 {baseDir}/scripts/inventory.py outgoing list --state assigned
+```
+
+#### 确认出库
+
+```bash
+python3 {baseDir}/scripts/inventory.py outgoing validate <picking_id>
+```
+
+### 3. 库存调拨 (Transfers)
+
+#### 创建调拨单
+
+```bash
+python3 {baseDir}/scripts/inventory.py transfer create \
+  --location_src_id 10 \
+  --location_dest_id 20 \
+  --lines "Product A:100,Product B:50"
+```
+
+#### 查看调拨单
+
+```bash
+python3 {baseDir}/scripts/inventory.py transfer list
+```
+
+### 4. 库存盘点 (Inventory Adjustment)
+
+#### 创建盘点单
+
+```bash
+python3 {baseDir}/scripts/inventory.py adjustment create \
+  --location_id 10 \
+  --products "Product A,Product B"
+```
+
+#### 应用盘点
+
+```bash
+python3 {baseDir}/scripts/inventory.py adjustment apply <inventory_id>
+```
+
+### 5. 库存查询 (Stock Query)
+
+#### 查询库存数量
+
+```bash
+python3 {baseDir}/scripts/inventory.py stock query \
+  --product_id 456 \
+  --location_id 10
+```
+
+#### 查看库存报表
+
+```bash
+python3 {baseDir}/scripts/inventory.py stock report
+```
+
+## 🔧 脚本说明
+
+### inventory.py
+
+主脚本文件，提供所有库存功能。
+
+**位置**: `{baseDir}/scripts/inventory.py`
+
+**用法**:
+```bash
+python3 inventory.py <module> <action> [options]
+```
+
+**模块**:
+- `incoming`: 入库管理
+- `outgoing`: 出库管理
+- `transfer`: 库存调拨
+- `adjustment`: 库存盘点
+- `stock`: 库存查询
+
+## 📁 目录结构
+
+```
+odoo-inventory-skill/
+├── SKILL.md
+├── _meta.json
+├── .clawhub/
+│   └── origin.json
+├── references/
+│   ├── api-reference.md
+│   └── best-practices.md
+└── scripts/
+    ├── inventory.py
+    └── odoo_client.py
+```
+
+## 🎯 最佳实践
+
+### 入库管理
+
+1. **及时验收**: 货物到达后及时验收
+2. **准确录入**: 确保入库数量准确
+3. **质量检查**: 执行质量检验流程
+4. **及时上架**: 验收后及时上架
+
+### 出库管理
+
+1. **先进先出**: 遵循 FIFO 原则
+2. **准确拣货**: 按订单准确拣货
+3. **及时发货**: 确认后及时发货
+4. **包装规范**: 按标准包装
+
+### 库存管理
+
+1. **定期盘点**: 每月/季度盘点
+2. **差异分析**: 分析盘点差异原因
+3. **安全库存**: 设置合理安全库存
+4. **库位优化**: 优化库位布局
+
+## ⚠️ 注意事项
+
+1. **库存锁定**: 确保库存充足再确认订单
+2. **批次管理**: 需要批次的产品严格管理
+3. **有效期管理**: 注意产品有效期
+4. **权限控制**: 库存调整需审批
+
+## 🔗 相关资源
+
+- [Odoo 库存官方文档](https://www.odoo.com/documentation/16.0/applications/inventory_and_mrp/inventory.html)
+
+## 📝 更新日志
+
+### v0.1.0 (2026-04-12)
+- 初始版本
+- 入库出库管理
+- 库存调拨
+- 库存盘点
+- 库存查询
+
+---
+
+*Skill 版本：v0.1.0*
+*Odoo 兼容版本：16.0+*
+*最后更新：2026-04-12*
